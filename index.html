@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Uso das IAs</title>
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Uso IAs">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --fundo: #f4f5f7; --cartao: #ffffff; --borda: #e2e4e9; --texto: #15171c; --suave: #6b7280;
+    --trilho: #e6e8ec; --verde: #16a34a; --laranja: #ea8a0c; --vermelho: #dc2626;
+    --mac: #2563eb; --tp: #a21caf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundo: #0f1115; --cartao: #181b21; --borda: #2a2e37; --texto: #eef0f3; --suave: #9aa1ad;
+      --trilho: #2a2e37; --verde: #22c55e; --laranja: #f59e0b; --vermelho: #f87171;
+      --mac: #60a5fa; --tp: #e879f9;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fundo); color: var(--texto);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  header { display: flex; align-items: center; gap: 8px; padding: 14px 0 10px; }
+  header h1 { font-size: 20px; margin: 0; flex: 1; }
+  header small { color: var(--suave); font-size: 12px; }
+  button.icone { background: none; border: 0; color: var(--texto); font-size: 20px; padding: 4px 8px; cursor: pointer; }
+  main { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); }
+  .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 14px; padding: 14px; }
+  .topo { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .topo b { font-size: 17px; }
+  .topo span { color: var(--suave); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .selo { font-size: 11px; background: var(--trilho); border-radius: 99px; padding: 2px 8px; color: var(--suave); }
+  .aviso { color: var(--laranja); font-size: 13px; margin: 4px 0 8px; }
+  .item { margin-top: 10px; }
+  .linha { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .linha .num { font-variant-numeric: tabular-nums; color: var(--suave); white-space: nowrap; }
+  .trilho { height: 9px; background: var(--trilho); border-radius: 99px; overflow: hidden; display: flex; margin: 5px 0 3px; }
+  .trilho i { display: block; height: 100%; }
+  .rodape { display: flex; justify-content: space-between; font-size: 12px; color: var(--suave); font-variant-numeric: tabular-nums; }
+  .mac { color: var(--mac); } .tp { color: var(--tp); }
+  .vazio { color: var(--suave); text-align: center; padding: 40px 10px; }
+  .velho { color: var(--laranja); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Uso das IAs</h1>
+  <small id="quando"></small>
+  <button class="icone" id="recarregar" aria-label="Atualizar">↻</button>
+</header>
+<main id="lista"><p class="vazio">Carregando…</p></main>
+
+<script>
+const CHAVE = "uso-ias-acesso";
+const lista = document.getElementById("lista");
+const quando = document.getElementById("quando");
+
+// O link do QR code traz gist, usuário e senha no #fragmento, que nunca vai ao servidor.
+function acesso() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("g") && h.get("k")) {
+    const a = { g: h.get("g"), u: h.get("u") || "jbrittoAD", k: h.get("k") };
+    try { localStorage.setItem(CHAVE, JSON.stringify(a)); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+    return a;
+  }
+  try { return JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { return null; }
+}
+
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function decifra(env, senha) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveKey"]);
+  const chave = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: b64(env.salt), iterations: env.it, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const claro = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(env.iv) }, chave, b64(env.ct));
+  return JSON.parse(new TextDecoder().decode(claro));
+}
+
+const fmtTokens = n => n >= 1e9 ? (n / 1e9).toFixed(2) + " B" : n >= 1e6 ? (n / 1e6).toFixed(1) + " M"
+  : n >= 1e3 ? Math.round(n / 1e3) + " mil" : String(n);
+const cor = resta => resta > 50 ? "var(--verde)" : resta > 20 ? "var(--laranja)" : "var(--vermelho)";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function reseta(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), falta = d - Date.now();
+  const hora = d.toLocaleString("pt-BR", { weekday: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  if (falta <= 0) return `já resetou (${hora})`;
+  const h = Math.floor(falta / 36e5), m = Math.floor(falta % 36e5 / 6e4);
+  const prazo = h >= 48 ? `${Math.floor(h / 24)} dias` : h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
+  return `reseta em ${prazo} · ${hora}`;
+}
+
+function barraPlano(b) {
+  const usado = Math.min(100, b.usado_pct), resta = Math.max(0, 100 - b.usado_pct);
+  return `<div class="item">
+    <div class="linha"><span>${esc(b.rotulo)}</span>
+      <span class="num">${Math.round(usado)}% usado · <b style="color:${cor(resta)}">${Math.round(resta)}% resta</b></span></div>
+    <div class="trilho"><i style="width:${usado}%;background:${cor(resta)}"></i></div>
+    <div class="rodape"><span>${reseta(b.reset)}</span></div></div>`;
+}
+
+function barraUso(l) {
+  const tp = l.thinkpad ?? 0, total = l.mac + tp, pm = total ? Math.round(l.mac / total * 100) : 0;
+  return `<div class="item">
+    <div class="linha"><span>Últimos ${esc(l.rotulo)}</span><span class="num">total ${fmtTokens(total)} tokens</span></div>
+    <div class="trilho" style="opacity:${total ? 1 : .35}"><i style="width:${pm}%;background:var(--mac)"></i><i style="flex:1;background:var(--tp)"></i></div>
+    <div class="rodape"><span class="mac">Mac ${fmtTokens(l.mac)} (${pm}%)</span>
+      <span class="tp">${l.thinkpad == null ? "ThinkPad sem resposta" : `ThinkPad ${fmtTokens(tp)} (${total ? 100 - pm : 0}%)`}</span></div></div>`;
+}
+
+function desenha(c) {
+  const d = new Date(c.atualizado), idade = (Date.now() - d) / 6e4;
+  quando.innerHTML = `<span class="${idade > 20 ? "velho" : ""}">${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${idade > 20 ? " · Mac sem atualizar" : ""}</span>`;
+  lista.innerHTML = c.ias.map(ia => `<section class="cartao">
+    <div class="topo"><b>${esc(ia.nome)}</b><span>${esc(ia.conta)}</span><em class="selo">${ia.tipo === "plano" ? "plano" : "por uso"}</em></div>
+    ${ia.aviso ? `<div class="aviso">⚠︎ ${esc(ia.aviso)}</div>` : ""}
+    ${(ia.barras || []).map(barraPlano).join("")}
+    ${(ia.linhas || []).map(barraUso).join("")}
+  </section>`).join("");
+}
+
+async function atualiza() {
+  const a = acesso();
+  if (!a) { lista.innerHTML = `<p class="vazio">Abra este app pelo QR code do “Uso das IAs” no Mac.</p>`; return; }
+  try {
+    const r = await fetch(`https://gist.githubusercontent.com/${a.u}/${a.g}/raw/dados.enc?t=${Date.now()}`, { cache: "no-store" });
+    const env = await r.json();
+    if (!env.ct) { lista.innerHTML = `<p class="vazio">Aguardando a primeira publicação do Mac.</p>`; return; }
+    const c = await decifra(env, a.k);
+    try { localStorage.setItem(CHAVE + "-ultimo", JSON.stringify(c)); } catch (e) {}
+    desenha(c);
+  } catch (e) {
+    let ultimo = null;
+    try { ultimo = JSON.parse(localStorage.getItem(CHAVE + "-ultimo")); } catch (x) {}
+    if (ultimo) { desenha(ultimo); quando.innerHTML += ` <span class="velho">· sem rede</span>`; }
+    else lista.innerHTML = `<p class="vazio">Não consegui ler os dados (${esc(e.message)}).</p>`;
+  }
+}
+
+document.getElementById("recarregar").onclick = atualiza;
+document.addEventListener("visibilitychange", () => { if (!document.hidden) atualiza(); });
+setInterval(() => { if (!document.hidden) atualiza(); }, 120000);
+atualiza();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
