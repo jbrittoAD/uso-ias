@@ -123,6 +123,14 @@ function barraUso(l) {
       <span class="tp">${l.thinkpad == null ? "ThinkPad sem resposta" : `ThinkPad ${fmtTokens(tp)} (${total ? 100 - pm : 0}%)`}</span></div></div>`;
 }
 
+function linhaLogin(l) {
+  const d = new Date(l.expira), dias = (d - Date.now()) / 864e5;
+  const prazo = dias >= 2 ? `${Math.floor(dias)} dias` : `${Math.max(0, Math.floor(dias * 24))} h`;
+  const quando = d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return `<div class="rodape" style="margin-top:8px;${dias < 3 ? "color:var(--laranja)" : ""}">
+    <span>🔑 Login ${esc(l.conta)} vale até ${quando} · ${prazo}</span></div>`;
+}
+
 function desenha(c) {
   const d = new Date(c.atualizado), idade = (Date.now() - d) / 6e4;
   quando.innerHTML = `<span class="${idade > 20 ? "velho" : ""}">${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${idade > 20 ? " · Mac sem atualizar" : ""}</span>`;
@@ -131,6 +139,7 @@ function desenha(c) {
     ${ia.aviso ? `<div class="aviso">⚠︎ ${esc(ia.aviso)}</div>` : ""}
     ${(ia.barras || []).map(barraPlano).join("")}
     ${(ia.linhas || []).map(barraUso).join("")}
+    ${(ia.logins || []).map(linhaLogin).join("")}
   </section>`).join("");
 }
 

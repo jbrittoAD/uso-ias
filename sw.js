@@ -1,5 +1,5 @@
 // Guarda só a casca do app para abrir sem rede; os dados vêm sempre do gist (o último fica no localStorage).
-const CASCA = "uso-ias-v1";
+const CASCA = "uso-ias-v2";
 const ARQUIVOS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => e.waitUntil(caches.open(CASCA).then(c => c.addAll(ARQUIVOS))));
